@@ -22,7 +22,7 @@ The regulation allows pooling across companies, but the practical guidance from 
 
 ## Methodology
 
-Everything that affects a number is traceable to the regulation. The constants and formulas live in `regulation.py` with article and annex references inline.
+Everything that affects a number is traceable to the regulation. The constants and formulas live in `regulation.py` with article and annex references inline. Every hard-coded figure has been checked against the official Regulation (EU) 2023/1805 text and the European Commission's own guidance documents; the full audit trail is in [docs/VERIFICATION.md](docs/VERIFICATION.md).
 
 - **GHG-intensity target** (Article 4): the 2020 reference value of 91.16 gCO₂e/MJ reduced by 2% (2025), 6% (2030), 14.5% (2035), 31% (2040), 62% (2045), 80% (2050). The 2025 target works out to 89.34 gCO₂e/MJ, matching published guidance.
 - **Compliance balance** (Annex IV): `(target − attained) × energy_MJ`, in gCO₂e. Positive is surplus, negative is deficit.

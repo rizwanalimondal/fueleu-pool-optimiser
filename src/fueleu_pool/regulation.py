@@ -93,12 +93,13 @@ def penalty_eur(
 ) -> float:
     """FuelEU remedial penalty in EUR for a deficit balance (Annex IV).
 
-    Annex IV penalty formula for GHG-intensity non-compliance:
+    Annex IV Part B penalty formula (confirmed verbatim against the regulation
+    and the European Commission guidance document):
 
         penalty = (|CB_deficit| / (GHGIE_actual * 41000)) * 2400
 
-    Reading the conversion chain (confirmed against ABS and Normec Verifavia
-    published guidance on Annex IV / Art. 23(2)):
+    Reading the conversion chain (confirmed against the Annex IV Part B
+    formula in Regulation (EU) 2023/1805 and the EC guidance document):
       1. |CB_deficit| is the deficit in gCO2e.
       2. Divide by GHGIE_actual (gCO2e/MJ) -> non-compliant energy in MJ.
       3. Divide by 41 000 MJ/tonne -> tonnes of VLSFO-equivalent.
