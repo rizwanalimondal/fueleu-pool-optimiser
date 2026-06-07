@@ -139,27 +139,41 @@ with st.expander("What each column means (tap to open)"):
         "everything with your verifier._"
     )
 
-# Decide the table's starting content: an uploaded CSV takes precedence,
-# otherwise the starter fleet.
+# --- Decide the table's working content -------------------------------------
+# An uploaded CSV should LOAD into the table once (when newly uploaded); after
+# that, the user's edits in the table are the source of truth. We track which
+# file we've already ingested by name so re-running the script (which Streamlit
+# does on every interaction) doesn't keep overwriting edits with the file.
+def _normalise_uploaded(df: pd.DataFrame) -> pd.DataFrame:
+    for col in COLUMNS:
+        if col not in df.columns:
+            df[col] = None
+    return df[COLUMNS]
+
+if "fleet_df" not in st.session_state:
+    st.session_state.fleet_df = STARTER.copy()
+    st.session_state.loaded_upload = None
+
 if uploaded is not None:
-    try:
-        upload_df = pd.read_csv(uploaded)
-        # Keep only known columns; add any missing optional ones as blank.
-        for col in COLUMNS:
-            if col not in upload_df.columns:
-                upload_df[col] = None
-        table_source = upload_df[COLUMNS]
-    except Exception as e:
-        st.error(f"Could not read that CSV: {e}")
-        table_source = STARTER
+    # Ingest only if this is a different file than the one already loaded.
+    upload_id = (uploaded.name, uploaded.size)
+    if st.session_state.loaded_upload != upload_id:
+        try:
+            st.session_state.fleet_df = _normalise_uploaded(pd.read_csv(uploaded))
+            st.session_state.loaded_upload = upload_id
+        except Exception as e:
+            st.error(f"Could not read that CSV: {e}")
 else:
-    table_source = STARTER
+    # File removed from the uploader: forget it, but keep whatever is in the
+    # table (don't snap back to the starter and lose the user's work).
+    st.session_state.loaded_upload = None
 
 edited = st.data_editor(
-    table_source,
+    st.session_state.fleet_df,
     num_rows="dynamic",          # users can add and delete rows
     use_container_width=True,
     hide_index=True,
+    key="fleet_editor",
     column_config={
         "name": st.column_config.TextColumn(
             "Ship name", required=True,
