@@ -114,24 +114,56 @@ edited = st.data_editor(
     use_container_width=True,
     hide_index=True,
     column_config={
-        "name": st.column_config.TextColumn("Ship name", required=True),
+        "name": st.column_config.TextColumn(
+            "Ship name", required=True,
+            help="Any label for the vessel. Must be different for each ship.",
+        ),
         "attained_intensity": st.column_config.NumberColumn(
-            "Attained intensity (gCO\u2082e/MJ)", min_value=0.0, format="%.2f"
+            "Attained intensity (gCO\u2082e/MJ)", min_value=0.0, format="%.2f",
+            help=(
+                "How greenhouse-gas-heavy the ship's energy is, in grams of "
+                "CO\u2082-equivalent per megajoule. Your verifier provides this "
+                "figure. Marine fuels typically fall around 75\u201395; the 2025 "
+                "limit is 89.34. Below the limit = surplus, above it = deficit."
+            ),
         ),
         "energy_mj": st.column_config.NumberColumn(
-            "Energy (MJ)", min_value=0.0, format="%.0f"
+            "Energy (MJ)", min_value=0.0, format="%.0f",
+            help=(
+                "Total energy the ship used on board for in-scope voyages over "
+                "the year, in megajoules. Roughly: tonnes of fuel \u00d7 ~41,000 "
+                "for VLSFO. From your fuel-consumption records."
+            ),
         ),
         "consecutive_deficit_years": st.column_config.NumberColumn(
-            "Deficit years", min_value=1, step=1, format="%d"
+            "Deficit years", min_value=1, step=1, format="%d",
+            help=(
+                "How many years in a row this ship has been in deficit, "
+                "including this one. Leave at 1 unless it was also in deficit "
+                "in previous years \u2014 repeat deficits carry a higher penalty "
+                "(Article 23(2))."
+            ),
         ),
         "switch_intensity": st.column_config.NumberColumn(
-            "Switch intensity", min_value=0.0, format="%.2f"
+            "Switch intensity", min_value=0.0, format="%.2f",
+            help=(
+                "Optional. If this ship could switch to a cleaner fuel, its "
+                "GHG intensity (gCO\u2082e/MJ). Leave blank if no switch option."
+            ),
         ),
         "switch_price_spread_eur_mj": st.column_config.NumberColumn(
-            "Switch \u20ac/MJ", min_value=0.0, format="%.4f"
+            "Switch \u20ac/MJ", min_value=0.0, format="%.4f",
+            help=(
+                "Optional. Extra cost of the cleaner fuel over the current one, "
+                "in euros per megajoule. Leave blank if no switch option."
+            ),
         ),
         "switch_max_energy_mj": st.column_config.NumberColumn(
-            "Switch max MJ", min_value=0.0, format="%.0f"
+            "Switch max MJ", min_value=0.0, format="%.0f",
+            help=(
+                "Optional. The most energy (MJ) the ship could realistically "
+                "move to the cleaner fuel. Leave blank if no switch option."
+            ),
         ),
     },
 )
@@ -143,6 +175,36 @@ clean = clean[clean["name"].notna() & (clean["name"].astype(str).str.strip() != 
 if clean.empty:
     st.info("Add at least one ship to the table to see a plan.")
     st.stop()
+
+# Plausibility checks: warn (don't block) on values that look like typos.
+# A non-expert won't know an intensity of 334 is impossible - the tool does.
+def _plausibility_warnings(df: pd.DataFrame) -> list[str]:
+    warns: list[str] = []
+    for _, r in df.iterrows():
+        nm = str(r.get("name", "")).strip() or "(unnamed)"
+        ai = r.get("attained_intensity")
+        if pd.notna(ai) and (ai < 50 or ai > 150):
+            warns.append(
+                f"**{nm}**: attained intensity of {ai:g} gCO\u2082e/MJ is outside "
+                "the usual marine range (~75\u201395). Double-check it's not a typo."
+            )
+        en = r.get("energy_mj")
+        if pd.notna(en) and en <= 0:
+            warns.append(f"**{nm}**: energy is {en:g} MJ \u2014 should be a positive number.")
+        dy = r.get("consecutive_deficit_years")
+        if pd.notna(dy) and dy > 10:
+            warns.append(
+                f"**{nm}**: {int(dy)} consecutive deficit years looks high \u2014 "
+                "this is usually 1 unless the ship was in deficit in prior years."
+            )
+    return warns
+
+issues = _plausibility_warnings(clean)
+if issues:
+    st.warning(
+        "Some values look unusual \u2014 the result below still uses exactly what "
+        "you entered, so check these first:\n\n" + "\n\n".join(f"- {w}" for w in issues)
+    )
 
 # One validated path: serialise the table and parse it with the same loader
 # the CSV upload uses.
