@@ -173,14 +173,13 @@ edited = st.data_editor(
     num_rows="dynamic",          # users can add and delete rows
     use_container_width=True,
     hide_index=True,
-    key="fleet_editor",
     column_config={
         "name": st.column_config.TextColumn(
             "Ship name", required=True,
             help="Any label for the vessel. Must be different for each ship.",
         ),
         "attained_intensity": st.column_config.NumberColumn(
-            "Attained intensity (gCO\u2082e/MJ)", min_value=0.0, format="%.2f",
+            "Attained intensity (gCO\u2082e/MJ)", format="%.2f",
             help=(
                 "How greenhouse-gas-heavy the ship's energy is, in grams of "
                 "CO\u2082-equivalent per megajoule. Your verifier provides this "
@@ -189,7 +188,7 @@ edited = st.data_editor(
             ),
         ),
         "energy_mj": st.column_config.NumberColumn(
-            "Energy (MJ)", min_value=0.0, format="%.0f",
+            "Energy (MJ)", format="%.0f",
             help=(
                 "Total energy the ship used on board for in-scope voyages over "
                 "the year, in megajoules. Roughly: tonnes of fuel \u00d7 ~41,000 "
@@ -197,7 +196,7 @@ edited = st.data_editor(
             ),
         ),
         "consecutive_deficit_years": st.column_config.NumberColumn(
-            "Deficit years", min_value=1, step=1, format="%d",
+            "Deficit years", step=1, format="%d",
             help=(
                 "How many years in a row this ship has been in deficit, "
                 "including this one. Leave at 1 unless it was also in deficit "
@@ -206,21 +205,21 @@ edited = st.data_editor(
             ),
         ),
         "switch_intensity": st.column_config.NumberColumn(
-            "Switch intensity", min_value=0.0, format="%.2f",
+            "Switch intensity", format="%.2f",
             help=(
                 "Optional. If this ship could switch to a cleaner fuel, its "
                 "GHG intensity (gCO\u2082e/MJ). Leave blank if no switch option."
             ),
         ),
         "switch_price_spread_eur_mj": st.column_config.NumberColumn(
-            "Switch \u20ac/MJ", min_value=0.0, format="%.4f",
+            "Switch \u20ac/MJ", format="%.4f",
             help=(
                 "Optional. Extra cost of the cleaner fuel over the current one, "
                 "in euros per megajoule. Leave blank if no switch option."
             ),
         ),
         "switch_max_energy_mj": st.column_config.NumberColumn(
-            "Switch max MJ", min_value=0.0, format="%.0f",
+            "Switch max MJ", format="%.0f",
             help=(
                 "Optional. The most energy (MJ) the ship could realistically "
                 "move to the cleaner fuel. Leave blank if no switch option."
@@ -228,6 +227,10 @@ edited = st.data_editor(
         ),
     },
 )
+
+# Persist edits so they survive the next rerun and aren't overwritten by the
+# starter fleet. The edited table is now the single source of truth.
+st.session_state.fleet_df = edited
 
 # Drop fully-empty rows (a blank trailing row the editor leaves behind).
 clean = edited.dropna(how="all")

@@ -2,6 +2,10 @@
 
 Find the lowest-cost way to bring a fleet into FuelEU Maritime compliance.
 
+**[▶ Try it live](https://fueleu-pool-optimiser.streamlit.app)** — edit the fleet table and see the lowest-cost compliance plan.
+
+New here? Start with the plain-language [FAQ](docs/FAQ.md) — it assumes no shipping *or* software background. For the formula-by-formula detail see the [methodology](docs/METHODOLOGY.md), and for the audit of every regulatory number against the law see the [verification](docs/VERIFICATION.md).
+
 FuelEU Maritime (Regulation (EU) 2023/1805, in force since 1 January 2025) puts an annual GHG-intensity limit on the energy ships use on EU-linked voyages. Ships below the limit earn a surplus; ships above it run a deficit and face a penalty of €2,400 per tonne of VLSFO-equivalent energy in deficit. Operators have three ways to deal with a deficit: pay the penalty, switch to cleaner fuel, or pool the deficit against surpluses elsewhere in the fleet.
 
 Plenty of tools calculate a single ship's penalty. This one does something they don't: given a whole fleet, it works out the cheapest *combination* of those three levers across all ships at once — which surpluses should cover which deficits, where a fuel switch is worth its cost, and what penalty (if any) is left to pay. That allocation is a constrained optimisation problem, not a calculation, and the answer is usually not obvious by eye.
