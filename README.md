@@ -1,5 +1,7 @@
 # FuelEU Pool Optimiser
 
+**[▶ Try it live](https://fueleu-pool-optimiser.streamlit.app)** — upload a fleet CSV and see the lowest-cost compliance plan.
+
 Find the lowest-cost way to bring a fleet into FuelEU Maritime compliance.
 
 FuelEU Maritime (Regulation (EU) 2023/1805, in force since 1 January 2025) puts an annual GHG-intensity limit on the energy ships use on EU-linked voyages. Ships below the limit earn a surplus; ships above it run a deficit and face a penalty of €2,400 per tonne of VLSFO-equivalent energy in deficit. Operators have three ways to deal with a deficit: pay the penalty, switch to cleaner fuel, or pool the deficit against surpluses elsewhere in the fleet.
