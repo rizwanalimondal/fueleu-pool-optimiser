@@ -1,0 +1,9 @@
+pulp>=3.0
+streamlit>=1.30
+pandas>=2.0
+pytest>=8.0
+
+# Installs this project's own package (fueleu_pool, which lives in src/) so
+# that app.py can import it. Without this line, Streamlit Cloud cannot find
+# the module and the app fails with ModuleNotFoundError.
+-e .

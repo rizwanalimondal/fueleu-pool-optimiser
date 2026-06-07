@@ -1,0 +1,6 @@
+name,attained_intensity,energy_mj,consecutive_deficit_years,switch_intensity,switch_price_spread_eur_mj,switch_max_energy_mj
+Aframax_Alpha,94.5,2400000,1,,,
+Aframax_Bravo,93.8,2200000,2,,,
+Chemtank_Charlie,82.0,1800000,1,,,
+Parcel_Delta,95.2,2600000,1,60.0,0.012,1300000
+Bulker_Echo,88.5,2000000,1,,,
