@@ -92,6 +92,28 @@ st.caption(
     "option \u2014 fill all three switch columns to enable it for a ship."
 )
 
+with st.expander("What each column means (tap to open)"):
+    st.markdown(
+        "**Ship name** \u2014 any label for the vessel. Must be different for each ship.\n\n"
+        "**Attained intensity (gCO\u2082e/MJ)** \u2014 how greenhouse-gas-heavy the ship's "
+        "energy is, in grams of CO\u2082-equivalent per megajoule. Your verifier provides "
+        "this figure. Marine fuels typically sit around 75\u201395; the 2025 limit is "
+        "89.34. Below the limit the ship earns a surplus, above it a deficit.\n\n"
+        "**Energy (MJ)** \u2014 total energy the ship used on board for in-scope voyages "
+        "over the year, in megajoules. As a rough guide, tonnes of VLSFO \u00d7 41,000 "
+        "\u2248 MJ. Comes from your fuel-consumption records.\n\n"
+        "**Deficit years** \u2014 how many years in a row the ship has been in deficit, "
+        "counting this one. Leave at 1 unless it was also in deficit in earlier years; "
+        "repeat deficits are penalised more heavily (Article 23(2)).\n\n"
+        "**Switch intensity / Switch \u20ac/MJ / Switch max MJ** \u2014 optional, and only "
+        "used together. If a ship could move some energy to a cleaner fuel, give that "
+        "fuel's intensity (gCO\u2082e/MJ), how much more it costs than the current fuel "
+        "(euros per MJ), and the most energy that could be switched (MJ). Leave all "
+        "three blank if there's no switch option.\n\n"
+        "_All figures are for one reporting year. This is decision-support \u2014 confirm "
+        "everything with your verifier._"
+    )
+
 # Decide the table's starting content: an uploaded CSV takes precedence,
 # otherwise the starter fleet.
 if uploaded is not None:
@@ -178,24 +200,60 @@ if clean.empty:
 
 # Plausibility checks: warn (don't block) on values that look like typos.
 # A non-expert won't know an intensity of 334 is impossible - the tool does.
+# Generous bounds: we flag clear nonsense, not merely unusual-but-valid values.
 def _plausibility_warnings(df: pd.DataFrame) -> list[str]:
+    # ~1 GJ in MJ for a single very large vessel-year is in the low billions;
+    # 100 billion MJ is far beyond any single ship, so it's almost certainly a
+    # mistyped figure or wrong unit.
+    ENERGY_SANITY_CEILING = 100_000_000_000  # 1e11 MJ
     warns: list[str] = []
     for _, r in df.iterrows():
         nm = str(r.get("name", "")).strip() or "(unnamed)"
+
         ai = r.get("attained_intensity")
         if pd.notna(ai) and (ai < 50 or ai > 150):
             warns.append(
                 f"**{nm}**: attained intensity of {ai:g} gCO\u2082e/MJ is outside "
                 "the usual marine range (~75\u201395). Double-check it's not a typo."
             )
+
         en = r.get("energy_mj")
         if pd.notna(en) and en <= 0:
             warns.append(f"**{nm}**: energy is {en:g} MJ \u2014 should be a positive number.")
+        elif pd.notna(en) and en > ENERGY_SANITY_CEILING:
+            warns.append(
+                f"**{nm}**: energy of {en:,.0f} MJ is implausibly large for one "
+                "ship in a year. Check the figure and the unit (the column is MJ)."
+            )
+
         dy = r.get("consecutive_deficit_years")
         if pd.notna(dy) and dy > 10:
             warns.append(
                 f"**{nm}**: {int(dy)} consecutive deficit years looks high \u2014 "
                 "this is usually 1 unless the ship was in deficit in prior years."
+            )
+
+        # Optional switch columns: flag a partial set (only some of the three
+        # filled) and out-of-range switch values.
+        si = r.get("switch_intensity")
+        sp = r.get("switch_price_spread_eur_mj")
+        sm = r.get("switch_max_energy_mj")
+        filled = [pd.notna(si), pd.notna(sp), pd.notna(sm)]
+        if any(filled) and not all(filled):
+            warns.append(
+                f"**{nm}**: the cleaner-fuel option needs all three switch "
+                "columns filled (intensity, \u20ac/MJ, and max MJ). With only some "
+                "filled, the switch is ignored for this ship."
+            )
+        if pd.notna(si) and (si < 0 or si > 150):
+            warns.append(
+                f"**{nm}**: switch intensity of {si:g} gCO\u2082e/MJ is out of range "
+                "(a cleaner fuel should be well below ~90). Double-check it."
+            )
+        if pd.notna(sm) and pd.notna(en) and sm > en > 0:
+            warns.append(
+                f"**{nm}**: switch max energy ({sm:,.0f} MJ) exceeds the ship's "
+                f"total energy ({en:,.0f} MJ). You can't switch more than the ship uses."
             )
     return warns
 
