@@ -1,16 +1,14 @@
 """FuelEU Pool Optimiser - Streamlit dashboard.
 
-Upload a fleet CSV, pick a reporting year, and see the lowest-cost compliance
-plan: how much to pool, how much fuel to switch, and what penalty remains,
-compared against doing nothing.
+Type your fleet straight into the table (or upload a CSV), pick a reporting
+year, and see the lowest-cost compliance plan: how much to pool, how much fuel
+to switch, and what penalty remains, compared against doing nothing.
 
 Decision-support only. Not a compliance statement of record. Always confirm
 figures with your verifier.
 """
 
 from __future__ import annotations
-
-import io
 
 import pandas as pd
 import streamlit as st
@@ -20,6 +18,43 @@ from fueleu_pool.optimiser import optimise_fleet
 from fueleu_pool.regulation import target_ghg_intensity, REDUCTION_TRAJECTORY
 
 st.set_page_config(page_title="FuelEU Pool Optimiser", layout="wide")
+
+# Column order shared by the editable table and the CSV format.
+COLUMNS = [
+    "name",
+    "attained_intensity",
+    "energy_mj",
+    "consecutive_deficit_years",
+    "switch_intensity",
+    "switch_price_spread_eur_mj",
+    "switch_max_energy_mj",
+]
+
+# A starter fleet so the app shows a working answer the moment it loads.
+STARTER = pd.DataFrame(
+    [
+        ["Aframax_Alpha", 94.5, 2_400_000, 1, None, None, None],
+        ["Aframax_Bravo", 93.8, 2_200_000, 2, None, None, None],
+        ["Chemtank_Charlie", 82.0, 1_800_000, 1, None, None, None],
+        ["Parcel_Delta", 95.2, 2_600_000, 1, 60.0, 0.012, 1_300_000],
+        ["Bulker_Echo", 88.5, 2_000_000, 1, None, None, None],
+    ],
+    columns=COLUMNS,
+)
+
+
+def _money(x: float) -> str:
+    return f"\u20ac{x:,.0f}"
+
+
+def df_to_csv_text(df: pd.DataFrame) -> str:
+    """Serialise the editable table to the CSV text the loader expects.
+
+    Routing through the same load_fleet parser means table input and file
+    upload share one validated path - there is no second, untested code route.
+    """
+    return df.to_csv(index=False)
+
 
 st.title("FuelEU Maritime Pool Optimiser")
 st.caption(
@@ -32,57 +67,106 @@ with st.sidebar:
     st.header("Inputs")
     years = sorted(REDUCTION_TRAJECTORY)
     year = st.selectbox("Reporting year", years, index=0)
-    st.metric(f"GHG intensity target {year}", f"{target_ghg_intensity(year):.2f} gCO\u2082e/MJ")
+    st.metric(
+        f"GHG intensity target {year}",
+        f"{target_ghg_intensity(year):.2f} gCO\u2082e/MJ",
+    )
     st.divider()
-    uploaded = st.file_uploader("Fleet CSV", type=["csv"])
     st.caption(
-        "Need the format? Download the sample below, edit it, and re-upload."
+        "The table on the right is pre-filled with an example fleet. Edit it, "
+        "add rows, or clear it and enter your own. Prefer a file? Upload a CSV "
+        "below \u2014 it uses the same columns."
     )
-    sample = (
-        "name,attained_intensity,energy_mj,consecutive_deficit_years,"
-        "switch_intensity,switch_price_spread_eur_mj,switch_max_energy_mj\n"
-        "Aframax_Alpha,94.5,2400000,1,,,\n"
-        "Chemtank_Charlie,82.0,1800000,1,,,\n"
-        "Parcel_Delta,95.2,2600000,1,60.0,0.012,1300000\n"
+    uploaded = st.file_uploader("Upload fleet CSV (optional)", type=["csv"])
+    st.download_button(
+        "Download blank template",
+        df_to_csv_text(STARTER),
+        "fleet_template.csv",
+        "text/csv",
     )
-    st.download_button("Download sample CSV", sample, "sample_fleet.csv", "text/csv")
 
+st.subheader("Your fleet")
+st.caption(
+    "Required: **name**, **attained_intensity** (gCO\u2082e/MJ), **energy_mj**. "
+    "Optional: **consecutive_deficit_years** (default 1) and a cleaner-fuel "
+    "option \u2014 fill all three switch columns to enable it for a ship."
+)
 
-def _money(x: float) -> str:
-    return f"\u20ac{x:,.0f}"
+# Decide the table's starting content: an uploaded CSV takes precedence,
+# otherwise the starter fleet.
+if uploaded is not None:
+    try:
+        upload_df = pd.read_csv(uploaded)
+        # Keep only known columns; add any missing optional ones as blank.
+        for col in COLUMNS:
+            if col not in upload_df.columns:
+                upload_df[col] = None
+        table_source = upload_df[COLUMNS]
+    except Exception as e:
+        st.error(f"Could not read that CSV: {e}")
+        table_source = STARTER
+else:
+    table_source = STARTER
 
+edited = st.data_editor(
+    table_source,
+    num_rows="dynamic",          # users can add and delete rows
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "name": st.column_config.TextColumn("Ship name", required=True),
+        "attained_intensity": st.column_config.NumberColumn(
+            "Attained intensity (gCO\u2082e/MJ)", min_value=0.0, format="%.2f"
+        ),
+        "energy_mj": st.column_config.NumberColumn(
+            "Energy (MJ)", min_value=0.0, format="%.0f"
+        ),
+        "consecutive_deficit_years": st.column_config.NumberColumn(
+            "Deficit years", min_value=1, step=1, format="%d"
+        ),
+        "switch_intensity": st.column_config.NumberColumn(
+            "Switch intensity", min_value=0.0, format="%.2f"
+        ),
+        "switch_price_spread_eur_mj": st.column_config.NumberColumn(
+            "Switch \u20ac/MJ", min_value=0.0, format="%.4f"
+        ),
+        "switch_max_energy_mj": st.column_config.NumberColumn(
+            "Switch max MJ", min_value=0.0, format="%.0f"
+        ),
+    },
+)
 
-if uploaded is None:
-    st.info("Upload a fleet CSV to begin, or grab the sample from the sidebar.")
-    with st.expander("What the columns mean"):
-        st.markdown(
-            "- **name** \u2014 unique vessel name\n"
-            "- **attained_intensity** \u2014 well-to-wake GHG intensity in gCO\u2082e/MJ "
-            "(from your verifier, or computed from your fuel mix)\n"
-            "- **energy_mj** \u2014 in-scope energy used on board, in MJ\n"
-            "- **consecutive_deficit_years** \u2014 optional; drives the Article 23(2) "
-            "repeat-deficit multiplier (default 1)\n"
-            "- **switch_intensity / switch_price_spread_eur_mj / switch_max_energy_mj** "
-            "\u2014 optional; a cleaner-fuel option for that ship. Provide all three to "
-            "enable it."
-        )
+# Drop fully-empty rows (a blank trailing row the editor leaves behind).
+clean = edited.dropna(how="all")
+clean = clean[clean["name"].notna() & (clean["name"].astype(str).str.strip() != "")]
+
+if clean.empty:
+    st.info("Add at least one ship to the table to see a plan.")
     st.stop()
 
+# One validated path: serialise the table and parse it with the same loader
+# the CSV upload uses.
 try:
-    text = uploaded.getvalue().decode("utf-8")
-    ships, switch_options = load_fleet(text)
-except Exception as e:  # surface parse errors plainly
-    st.error(f"Could not read that CSV: {e}")
+    ships, switch_options = load_fleet(df_to_csv_text(clean))
+except Exception as e:
+    st.error(f"Check the fleet: {e}")
     st.stop()
 
 result = optimise_fleet(ships, year, switch_options)
 
+st.subheader("Result")
 c1, c2, c3 = st.columns(3)
-c1.metric("If you do nothing", _money(result.do_nothing_cost),
-          help="Sum of each ship's standalone penalty, no pooling or switching.")
+c1.metric(
+    "If you do nothing",
+    _money(result.do_nothing_cost),
+    help="Sum of each ship's standalone penalty, no pooling or switching.",
+)
 c2.metric("Optimised plan", _money(result.total_cost))
-c3.metric("Savings", _money(result.savings_vs_do_nothing),
-          delta=f"{(result.savings_vs_do_nothing / result.do_nothing_cost * 100) if result.do_nothing_cost else 0:.0f}%")
+c3.metric(
+    "Savings",
+    _money(result.savings_vs_do_nothing),
+    delta=f"{(result.savings_vs_do_nothing / result.do_nothing_cost * 100) if result.do_nothing_cost else 0:.0f}%",
+)
 
 st.subheader("Per-ship plan")
 rows = []

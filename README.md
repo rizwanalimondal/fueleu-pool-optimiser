@@ -1,6 +1,6 @@
 # FuelEU Pool Optimiser
 
-**[▶ Try it live](https://fueleu-pool-optimiser.streamlit.app)** — upload a fleet CSV and see the lowest-cost compliance plan.
+**[▶ Try it live](https://fueleu-pool-optimiser.streamlit.app)** — edit the fleet table and see the lowest-cost compliance plan.
 
 Find the lowest-cost way to bring a fleet into FuelEU Maritime compliance.
 
@@ -64,9 +64,11 @@ PYTHONPATH=src python -m pytest -v
 PYTHONPATH=src streamlit run app.py
 ```
 
-## Fleet CSV format
+## Entering a fleet
 
-A header row plus one row per ship. Required columns: `name`, `attained_intensity` (gCO₂e/MJ), `energy_mj`. Optional: `consecutive_deficit_years` (default 1). To give a ship a fuel-switch option, provide all three of `switch_intensity`, `switch_price_spread_eur_mj`, `switch_max_energy_mj`. A sample fleet is in `examples/sample_fleet.csv`.
+The dashboard opens with an editable table pre-filled with an example fleet, so you see a working result immediately. Edit the cells, add or delete rows, or clear it and type your own. No file needed.
+
+If you'd rather work from a file, the sidebar takes a CSV upload using the same columns, and a template is downloadable from there. The columns are: `name`, `attained_intensity` (gCO₂e/MJ) and `energy_mj` (required); `consecutive_deficit_years` (optional, default 1); and `switch_intensity`, `switch_price_spread_eur_mj`, `switch_max_energy_mj` (optional — fill all three to give a ship a cleaner-fuel option). A sample fleet is in `examples/sample_fleet.csv`. Table input and file upload are parsed by the same loader, so both follow identical rules.
 
 ## Using your own fuel data
 
