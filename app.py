@@ -17,7 +17,11 @@ from fueleu_pool.io_csv import load_fleet
 from fueleu_pool.optimiser import optimise_fleet
 from fueleu_pool.regulation import target_ghg_intensity, REDUCTION_TRAJECTORY
 
-st.set_page_config(page_title="FuelEU Pool Optimiser", layout="wide")
+st.set_page_config(
+    page_title="FuelEU Pool Optimiser",
+    page_icon="\u2693",  # anchor; SVG page_icon is unreliable, real icon is in the header
+    layout="wide",
+)
 
 # Column order shared by the editable table and the CSV format.
 COLUMNS = [
@@ -56,7 +60,28 @@ def df_to_csv_text(df: pd.DataFrame) -> str:
     return df.to_csv(index=False)
 
 
-st.title("FuelEU Maritime Pool Optimiser")
+st.markdown(
+    """
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px;">
+      <svg width="46" height="46" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="60" height="60" rx="12" fill="#0F2A4A"/>
+        <path d="M32 32 L18 22 M32 32 L46 22 M32 32 L32 48" stroke="#1E4D88" stroke-width="2.4" stroke-linecap="round"/>
+        <circle cx="18" cy="22" r="6.5" fill="#3D7DD8"/>
+        <path d="M15 22 h6 M18 19 v6" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round"/>
+        <circle cx="46" cy="22" r="6.5" fill="#16385F"/>
+        <path d="M43 22 h6" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round"/>
+        <circle cx="32" cy="48" r="6.5" fill="#16385F"/>
+        <path d="M29 48 h6" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round"/>
+        <circle cx="32" cy="32" r="5" fill="#FFFFFF"/>
+        <circle cx="32" cy="32" r="2.2" fill="#1E4D88"/>
+      </svg>
+      <span style="font-size:34px;font-weight:700;color:#0F2A4A;letter-spacing:-0.02em;">
+        FuelEU Maritime Pool Optimiser
+      </span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 st.caption(
     "Find the lowest-cost path to fleet compliance: pool surpluses against "
     "deficits, switch fuel where it pays, and pay the penalty only on what's "
@@ -202,9 +227,11 @@ if clean.empty:
 # A non-expert won't know an intensity of 334 is impossible - the tool does.
 # Generous bounds: we flag clear nonsense, not merely unusual-but-valid values.
 def _plausibility_warnings(df: pd.DataFrame) -> list[str]:
-    # ~1 GJ in MJ for a single very large vessel-year is in the low billions;
-    # 100 billion MJ is far beyond any single ship, so it's almost certainly a
-    # mistyped figure or wrong unit.
+    # FuelEU covers ships >= 5000 GT. Even a small such vessel burns on the
+    # order of hundreds of millions of MJ a year; a handful of MJ is a typo.
+    # Bounds are deliberately wide so legitimate small/large fleets don't
+    # false-alarm: flag only what's physically implausible.
+    ENERGY_SANITY_FLOOR = 100_000           # 1e5 MJ (~2.4 tonnes VLSFO/yr)
     ENERGY_SANITY_CEILING = 100_000_000_000  # 1e11 MJ
     warns: list[str] = []
     for _, r in df.iterrows():
@@ -220,6 +247,12 @@ def _plausibility_warnings(df: pd.DataFrame) -> list[str]:
         en = r.get("energy_mj")
         if pd.notna(en) and en <= 0:
             warns.append(f"**{nm}**: energy is {en:g} MJ \u2014 should be a positive number.")
+        elif pd.notna(en) and en < ENERGY_SANITY_FLOOR:
+            warns.append(
+                f"**{nm}**: energy of {en:g} MJ is implausibly small for a ship "
+                "over a year (expect hundreds of millions of MJ). Check the figure "
+                "and the unit (the column is MJ, not tonnes)."
+            )
         elif pd.notna(en) and en > ENERGY_SANITY_CEILING:
             warns.append(
                 f"**{nm}**: energy of {en:,.0f} MJ is implausibly large for one "

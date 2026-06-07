@@ -1,0 +1,19 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="FuelEU Pool Optimiser icon">
+  <!-- rounded square backdrop, brand navy -->
+  <rect x="2" y="2" width="60" height="60" rx="12" fill="#0F2A4A"/>
+  <!-- a pool: three linked nodes (ships) balancing around a central hub -->
+  <!-- connecting lines (the pool links) -->
+  <path d="M32 32 L18 22 M32 32 L46 22 M32 32 L32 48" stroke="#1E4D88" stroke-width="2.4" stroke-linecap="round"/>
+  <!-- surplus node (top-left), lighter = positive balance -->
+  <circle cx="18" cy="22" r="6.5" fill="#3D7DD8"/>
+  <path d="M15 22 h6 M18 19 v6" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round"/>
+  <!-- deficit node (top-right) -->
+  <circle cx="46" cy="22" r="6.5" fill="#16385F"/>
+  <path d="M43 22 h6" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round"/>
+  <!-- deficit node (bottom) -->
+  <circle cx="32" cy="48" r="6.5" fill="#16385F"/>
+  <path d="M29 48 h6" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round"/>
+  <!-- central optimiser hub -->
+  <circle cx="32" cy="32" r="5" fill="#FFFFFF"/>
+  <circle cx="32" cy="32" r="2.2" fill="#1E4D88"/>
+</svg>
