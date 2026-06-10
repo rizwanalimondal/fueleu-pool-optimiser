@@ -93,3 +93,24 @@ examples/         sample fleet CSV
 ## Licence
 
 MIT.
+
+---
+
+## About
+
+This tool is built and maintained by **[Navallogic Solutions](https://navallogic.com)** — an independent maritime advisory focused on vessel-performance analytics and decarbonisation compliance — as part of an open portfolio that includes [noonkit](https://github.com/rizwanalimondal/noonkit) (hull-fouling signal & CII analysis) and the [Maritime GHG Compliance Navigator](https://github.com/rizwanalimondal/ghg-compliance-navigator) (one fuel picture scored against IMO NZF, FuelEU, EU ETS and CII simultaneously).
+
+For fleet pooling strategy, fuel-procurement trade-off studies, or multi-regime exposure modelling beyond what a public tool can responsibly offer, get in touch via [navallogic.com](https://navallogic.com).
+
+*Built by Rizwan Ali Mondal.*
+
+
+---
+
+## About
+
+This tool is built and maintained by **[Navallogic Solutions](https://navallogic.com)** — an independent maritime advisory focused on vessel-performance analytics and decarbonisation compliance — as part of an open portfolio that includes [noonkit](https://github.com/rizwanalimondal/noonkit) (hull-fouling signal & CII analysis) and the [Maritime GHG Compliance Navigator](https://github.com/rizwanalimondal/ghg-compliance-navigator) (one fuel picture scored against IMO NZF, FuelEU, EU ETS and CII simultaneously).
+
+For fleet pooling strategy, fuel-procurement trade-off studies, or multi-regime exposure modelling beyond what a public tool can responsibly offer, get in touch via [navallogic.com](https://navallogic.com).
+
+*Built by Rizwan Ali Mondal.*

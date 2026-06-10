@@ -1,194 +1,77 @@
-# FAQ — FuelEU Pool Optimiser in plain language
+# FAQ — plain-language guide
 
-A plain-English companion to the code. If you're new to this — whether you
-know shipping but not software, or software but not shipping — start here. For
-the formula-by-formula detail, see [METHODOLOGY.md](METHODOLOGY.md). For the
-audit of every regulatory number against the law, see
-[VERIFICATION.md](VERIFICATION.md).
+This page assumes no shipping background *and* no software background. Pick the section that matches you.
 
 ---
 
-## What problem does this solve, in one paragraph?
+## The problem, in one paragraph
 
-The EU charges ships a penalty if the fuel they burn is too carbon-heavy. A
-company that runs several ships can avoid a lot of that penalty by being smart
-about it: some ships do better than the limit (a "surplus"), some do worse (a
-"deficit"), and the rules let a company cancel one against the other across its
-own fleet. There are also other moves — switch a ship to cleaner fuel, or just
-pay the fine. Working out the cheapest *combination* of those moves across a
-whole fleet is a genuine optimisation problem, and that's what this tool does.
+Since 1 January 2025, every large ship touching European ports lives under FuelEU Maritime: an annual cap on how "dirty" its energy is, per unit, well-to-wake. A ship below the cap earns a surplus; a ship above it runs a deficit and faces a penalty of €2,400 per tonne of VLSFO-equivalent energy in deficit. An operator with a deficit has exactly three moves — pay the penalty, switch some fuel to something cleaner, or *pool* the deficit against a surplus elsewhere in the fleet (the regulation explicitly allows netting across ships). Which combination is cheapest is not obvious by inspection: it depends on every ship's balance, the price spread of cleaner fuel, and how surpluses are allocated. That's a constrained optimisation problem, and every existing tool that solves it is closed, paid SaaS. This tool open-sources the optimiser: feed it your fleet, get the lowest-cost compliance plan, and read exactly how it decided.
 
 ---
 
-## I'm a software person with no shipping background. What's the absolute minimum I need to know?
+## I'm a software person with no shipping background
 
-Five ideas, and you'll understand the whole tool:
+Five concepts and you understand the whole tool:
 
-1. **GHG intensity.** A number describing how carbon-heavy a ship's energy is —
-   grams of CO₂-equivalent per megajoule of energy (gCO₂e/MJ). Lower is
-   cleaner. Think of it like a car's emissions-per-km rating, but per unit of
-   energy instead of per distance.
+1. **The regulated quantity is intensity, not volume.** FuelEU caps well-to-wake GHG per megajoule of energy used (gCO₂eq/MJ) against a declining target (91.16 × (1−r), with r stepping 2% in 2025 to 80% in 2050). Burn a lot of clean energy: fine. Burn a little dirty energy: deficit.
+2. **The compliance balance turns intensity into a tradeable quantity.** CB = (target − attained) × energy. It's denominated in grams of CO₂eq, it's signed (surplus/deficit), and — crucially — it's *additive across ships*. That additivity is what makes pooling a netting problem.
+3. **Pooling is regulated netting.** Under Article 21 a company may pool its ships; the pool is valid if its total balance is non-negative. So one very clean ship can carry several slightly-dirty ones. The optimiser's job is allocating surplus to deficits, alongside the other two levers.
+4. **The optimisation is a linear program, on purpose.** Working in compliance-balance (gCO₂e) space keeps everything linear: pooling is summation, fuel-switching reduces a deficit linearly in the energy switched, and the objective minimises penalty-on-residual-deficit plus fuel-switch cost. Built with the open `pulp` library; the constraints map almost one-to-one onto the regulation's articles, which is what keeps it auditable. For a single company's fleet it solves instantly.
+5. **There is exactly one approximation, and it's stated, not hidden.** The penalty formula divides the deficit by the ship's *attained intensity* — which changes if the ship switches fuel, making the objective non-linear. The optimiser fixes each ship's penalty *rate* at its starting intensity: exact for any ship that doesn't switch, within about ±5% for one that does (across the realistic 85–95 gCO₂e/MJ range), and the exact penalty is recomputed for reporting. See [METHODOLOGY.md](METHODOLOGY.md) §6.
 
-2. **The limit.** The EU sets a maximum GHG intensity for each year. For 2025
-   it's 89.34 gCO₂e/MJ. It gets stricter over time (down to an 80% cut by
-   2050).
+Start reading at `src/fueleu_pool/regulation.py` (the verified constants), then `optimiser.py` (the novel core).
 
-3. **Compliance balance.** For each ship: `(limit − actual) × energy used`. If
-   a ship is cleaner than the limit, this is positive — a **surplus**. Dirtier
-   than the limit — negative, a **deficit**. It's measured in grams of CO₂e.
+## I'm a mariner with no software background
 
-4. **The penalty.** A ship left in deficit pays a fine, roughly €0.058 for
-   every megajoule of "non-compliant" energy. For a big ship over a year that's
-   easily six or seven figures of euros.
+You don't need to touch any code. The tool runs in your web browser:
 
-5. **The three escape routes for a deficit.** Pay the fine; switch some fuel to
-   a cleaner one (if you have that option); or **pool** — use another ship's
-   surplus to cancel your deficit, as long as both ships belong to the same
-   company and the pool's total stays positive.
+1. Open the live app (fueleu-pool-optimiser.streamlit.app).
+2. Enter your fleet directly in the editable table — one row per ship, with each ship's energy used and attained GHG intensity (your DOC holder or MRV verifier can supply both). A CSV upload is available as an alternative; the table is the primary input and your edits persist.
+3. If a fuel switch is on the table for any ship, enter the candidate fuel's intensity and the price spread you're actually being quoted — the tool optimises against *your* prices; it does not forecast fuel markets.
+4. Press optimise. You get: the cheapest combined plan, the do-nothing penalty cost beside it (the saving is the headline), and a per-ship breakdown — which ships donate surplus, which receive it, which switch fuel, which simply pay.
+5. The glossary expander on the page defines every column, and the validation layer warns about implausible entries (intensities outside the realistic range, energy figures that look like unit slips) before they corrupt a result.
 
-The tool takes a fleet, works out each ship's balance, then finds the
-lowest-cost mix of those three routes. That's it.
+What it is and isn't: decision support for planning your compliance strategy — not a substitute for your verifier, and not a compliance guarantee. The plan it proposes is only as good as the balances and prices you feed it.
 
 ---
 
-## I'm a mariner with no software background. How do I just use it?
+## Common questions
 
-You don't need to touch any code. Go to the live app, and you'll see a table
-already filled with an example fleet. Either edit that table directly — click a
-cell, type your number — or upload a CSV with your own ships. The tool shows
-you the cheapest plan straight away and updates as you change numbers.
+**Why is pooling such a big deal? Isn't it just bookkeeping?**
+Because the penalty is steeply asymmetric: a deficit costs €2,400/t VLSFO-equivalent, while a surplus left unused earns nothing. Netting a surplus you already own against a deficit you'd otherwise pay for is often the cheapest compliance there is — but only if allocated correctly across the fleet, which is exactly the part done here by optimisation rather than eyeballing.
 
-Each column has a little "?" you can hover for an explanation, and there's a
-"What each column means" panel above the table that opens with one tap. If you
-type something that looks wrong (an impossible emissions figure, a ship that
-somehow used almost no fuel), the tool shows an amber warning so you can catch
-the typo.
+**Why only single-company (internal) pooling?**
+A deliberate scope decision, not a gap. Cross-company pooling drags in Document-of-Compliance liability and counterparty contractual risk — a legal layer, not a mathematical one. Companies pool internally first in practice; v1 solves that clean core exactly.
 
----
+**Where do the numbers in the penalty chain come from?**
+Regulation (EU) 2023/1805 directly: the 91.16 gCO₂eq/MJ reference, the 2%→80% target steps, the Annex IV penalty (€2,400 per tonne VLSFO-equivalent via the 41,000 MJ/t divisor, ≈ €0.0585 per MJ of non-compliant energy), the +10% consecutive-year multiplier, and the Annex II fuel emission factors cross-checked against the European Commission's own guidance. Every constant's source is tabulated in [VERIFICATION.md](VERIFICATION.md), and the test suite pins the maths to hand-worked and published values.
 
-## What do I actually type in for each ship?
+**What does the tool deliberately NOT do?**
+Banking and borrowing across years (multi-year state — a clean v2), cross-company pools, OPS shore-power penalties, the RFNBO sub-target, and wind-assist/ice-class reward factors (those adjust attained intensity upstream — supply an already-adjusted figure if they apply). Where something is out of scope, the tool says so rather than pretending.
 
-Three things are required:
+**How does this relate to the IMO's new global rules?**
+FuelEU is the EU intensity regime; the IMO's draft Net-Zero Framework is the coming global one, with a different baseline and penalty structure — and no pooling. The companion [Maritime GHG Compliance Navigator](https://github.com/rizwanalimondal/ghg-compliance-navigator) scores one fuel picture against both (plus EU ETS and CII) side by side.
 
-- **Ship name** — any label, just make each one different.
-- **Attained intensity** — the ship's GHG intensity in gCO₂e/MJ. Your verifier
-  gives you this figure, or you compute it from your fuel mix. Marine fuels sit
-  around 75–95.
-- **Energy (MJ)** — total in-scope energy the ship used over the year. Rough
-  rule of thumb: tonnes of VLSFO × 41,000 ≈ MJ.
+**A figure looks wrong / the regulation changed. What do I do?**
+Open an issue on the GitHub repository quoting the primary source. Corrections against primary sources are the point of publishing this openly.
 
-Three things are optional:
-
-- **Deficit years** — leave at 1 unless the ship was also in deficit in
-  earlier years (repeat deficits cost more).
-- **Switch intensity / Switch €/MJ / Switch max MJ** — only if a ship could
-  move to a cleaner fuel. Fill in all three together (the cleaner fuel's
-  intensity, how much more it costs per MJ, and how much energy could switch).
-  Leave all three blank if there's no switch option.
+**Can I get help applying this to my fleet?**
+This tool is maintained by [Navallogic Solutions](https://navallogic.com), an independent maritime advisory focused on vessel-performance analytics and decarbonisation compliance. For fleet pooling strategy, fuel-procurement trade-off studies, or multi-regime exposure modelling beyond what a public tool can responsibly do, reach out via the website.
 
 ---
 
-## What do the results mean?
+## Command glossary (for non-developers running it locally)
 
-Three headline numbers:
-
-- **If you do nothing** — what the fleet pays in penalties if every ship just
-  pays its own fine, no pooling or switching.
-- **Optimised plan** — the lowest total cost the tool could find.
-- **Savings** — the difference between the two.
-
-Then a per-ship table shows what the optimiser decided for each vessel: how
-much deficit was covered by pooling, how much surplus a ship donated, whether
-it switched fuel, and any penalty still left to pay.
+| You type | What it actually does |
+|---|---|
+| `git clone <url>` | Downloads a complete copy of the project from GitHub to your computer. |
+| `python -m venv .venv` | Creates a private sandbox of Python packages just for this project. |
+| `source .venv/Scripts/activate` | Steps your terminal into that sandbox (Windows Git Bash). The prompt shows `(.venv)` when you're in. |
+| `pip install -e .` | Installs the package itself into the sandbox, in "editable" mode so the code you see is the code that runs. |
+| `python -m pytest -v` | Runs the 17 automated checks pinning the maths and the optimiser's decisions to hand-worked values. |
+| `streamlit run app.py` | Starts the dashboard in your browser at `localhost:8501`. `Ctrl+C` stops it. |
 
 ---
 
-## How do I know the numbers are right?
-
-Every regulatory figure the tool uses — the limit, the reduction percentages,
-the penalty rate, the fuel emission factors — has been checked line-by-line
-against the official Regulation (EU) 2023/1805 and the European Commission's
-own guidance documents. That audit is written up in
-[VERIFICATION.md](VERIFICATION.md), with a table of every number, its source,
-and the result.
-
-As a cross-check: feed the tool the standard HFO fuel figures and it computes a
-2025 GHG intensity of 91.74 gCO₂e/MJ. An independent published worked example
-gets 91.744 for the same case. The match confirms the calculation method, not
-just the input numbers.
-
-The tool also has an automated test suite (17 tests) that checks the
-regulation maths and the optimiser's decisions against hand-worked answers.
-They run with one command (see the glossary below).
-
----
-
-## Is this an official compliance tool? Can I file its output with a regulator?
-
-No. It's **decision-support** — built to help you compare options and
-understand the shape of the decision. It is not a Statement of Compliance and
-doesn't replace your verifier. The regulation has genuine grey areas, verifier
-practice is still settling, and the fuel prices and intensities you feed in are
-your own assumptions. Always confirm figures with your verifier before acting
-on them. The app says this on its face, deliberately.
-
----
-
-## What does it deliberately NOT do (yet)?
-
-To keep the first version correct rather than broad, these are out of scope and
-flagged as such:
-
-- **Banking and borrowing** (carrying surplus across years) — needs multi-year
-  modelling; a clean future addition.
-- **Cross-company pooling** — only single-company internal pools for now,
-  because cross-company pools drag in contractual and liability questions.
-- **Shore-power (OPS) penalties** and the **RFNBO sub-target** — separate
-  penalty regimes.
-- **Wind-assist and ice-class reward factors** — these adjust a ship's
-  intensity before it reaches this tool; feed in an already-adjusted figure if
-  they apply.
-
----
-
-## Why "pooling optimiser" and not just a "calculator"?
-
-Lots of free tools calculate one ship's penalty. The hard part isn't the
-arithmetic for one ship — it's deciding, across a whole fleet, which surpluses
-should cover which deficits, where a fuel switch is worth its cost, and what to
-leave as a fine. With more than a couple of ships the best answer isn't
-obvious by eye. That allocation is a constrained optimisation problem, and
-solving it is what makes this different from a calculator.
-
----
-
-## Command glossary (for non-developers)
-
-If you want to run the project on your own machine, here are the few commands
-involved and what each piece means.
-
-- **`cd foldername`** — "change directory," i.e. step into a folder. `cd
-  fueleu-pool-optimiser` moves you inside the project.
-- **`pip install -r requirements.txt`** — installs the supporting libraries the
-  project needs. `pip` is Python's installer; `-r requirements.txt` means
-  "install everything listed in this file."
-- **`pip install -e .`** — installs *this* project's own code so the app can
-  find it. The `.` (a dot) means "the project in this folder"; `-e` means
-  "editable," so changes you make take effect without reinstalling.
-- **`python -m pytest`** — runs the test suite (the self-checks). `python -m`
-  means "run this tool through Python," which is the reliable way to launch it.
-  Add **`-v`** ("verbose") to see each test by name.
-- **`streamlit run app.py`** — starts the dashboard locally and opens it in your
-  browser. Press `Ctrl+C` in the terminal to stop it.
-- **`git add .` / `git commit -m "..."` / `git push`** — the three commands that
-  save your changes and send them to GitHub. `git` is for saving and sharing
-  work; the `-m "..."` is just a short note describing what changed.
-
-A simple way to hold it together: `git` saves and shares your work;
-`python` / `pip` / `streamlit` run and test the code; the little flags (`-r`,
-`-e`, `-v`, `.`) are tiny instructions that tweak how a command behaves.
-
----
-
-For the regulation, the formulas, and how each calculation is built up, see
-[METHODOLOGY.md](METHODOLOGY.md).
+*Maintained by [Navallogic Solutions](https://navallogic.com) · See also: [METHODOLOGY.md](METHODOLOGY.md) for the formulas, [VERIFICATION.md](VERIFICATION.md) for the audit of every constant against its source. Companion tools: [noonkit](https://github.com/rizwanalimondal/noonkit) · [Maritime GHG Compliance Navigator](https://github.com/rizwanalimondal/ghg-compliance-navigator).*
